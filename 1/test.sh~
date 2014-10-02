@@ -1,0 +1,14 @@
+#!/bin/bash
+
+echo "testing 1st set"
+for file in *.py
+do
+    filename=${file%.*}
+    echo "testing $file $filename"
+    ../python2perl.pl< "$file" > "$filename.out.pl"
+    echo "executing perl files for testing"
+    perl "$filename.pl" > correct.txt
+    perl "$filename.out.pl" > test.txt
+    echo "Comparing files"
+    diff correct.txt test.txt
+done
