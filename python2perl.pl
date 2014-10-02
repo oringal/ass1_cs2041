@@ -28,17 +28,16 @@ while (my $line = <>) {
         my @values = split(' ', $line);
         for my $i (0 .. $#values){
             my $var = $values[$i];
-            if($i eq $#values){
-                print looks_like_number($var) ? '' : '$',"$var,\"\\n\"\;\n";
+            if($i eq $#values){ #if last variable in line add ,"\n"; to the end of the line
+                print looks_like_number($var) ? '' : '$',"$var,\"\\n\"\;\n"; 
             } elsif ($var =~ /[\=\+\-\*\/]/){
                 print "$var ";
             } elsif ($var =~ /print/) {
                 print "$var ";  
             } else{
-                print looks_like_number($var) ? '' : '$', "$var "; #checks if the variable
-            }  
+                print looks_like_number($var) ? '' : '$', "$var ";
+            } #similar approach to as above, split the string when see print 
         }
-        #print "print \"\$$1\\n\"\;\n";
     } 
     
     else {
