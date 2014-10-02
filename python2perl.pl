@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 use strict;
-use Scalar::Util qw(looks_like_number);
+use Scalar::Util qw(looks_like_number); #use perl module which checks if var is a number
+
 # http://www.cse.unsw.edu.au/~cs2041/assignments/python2perl
 # written by antheny yu z3463699
 
