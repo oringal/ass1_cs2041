@@ -1,10 +1,9 @@
 #!/bin/bash
 
-echo "testing 1st set"
 for file in *.py
 do
     filename=${file%.*}
-    echo "testing $file $filename"
+    echo "testing $file"
     ../python2perl.pl< "$file" > "$filename.out.pl"
     echo "executing perl files for testing"
     perl "$filename.pl" > correct.txt
