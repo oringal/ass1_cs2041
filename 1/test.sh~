@@ -11,4 +11,10 @@ do
     perl "$filename.out.pl" > test.txt
     echo "Comparing files"
     diff correct.txt test.txt
+    if [ $? -ne 0 ]
+	then
+		echo "test fail"
+	else 
+		echo "test success"
+	fi
 done

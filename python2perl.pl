@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 use strict;
 use Scalar::Util qw(looks_like_number); #use perl module which checks if var is a number
 
