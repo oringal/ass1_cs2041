@@ -24,7 +24,7 @@ while (my $line = <>) {
         my $i = 0;
         while ($i <= $#values){
             my $var = $values[$i];
-            if (($i eq $#values) && ($var !~ /\:/)){#one line statements, close the bracket
+            if (($i == $#values) && ($var !~ /\:/)){#one line statements, close the bracket
                 print looks_like_number($var) ? '' : '$', "$var;\n";
                 print "\}\n";
                 $indent--;
@@ -52,6 +52,13 @@ while (my $line = <>) {
                     }
                 } 
                 print_routine(@print_array); 
+                if ($i == (1+$#values)) {
+                    print "\}\n";   
+                } else {
+                    print ' ' x ($indent*4);
+                }
+            } elsif($var =~ s/;//){
+                print looks_like_number($var) ? '' : '$', "$var\; \n";
                 print ' ' x ($indent*4);
             } elsif ($var =~ /[\=\+\-\*\/\>\<\"\']/) { #if the variable is [=+-*/]
                 print "$var ";
@@ -88,21 +95,20 @@ while (my $line = <>) {
 sub print_routine {
     my @values = @_;
     for my $i (0 .. $#values){
-            my $var = $values[$i];
-            $var =~ s/\;//;
-            if ($#values eq 0){ #if just print, print a new line
-                print "print \"\\n\"\n"; 
-            } elsif($i eq $#values){ #if last variable in line add ,"\n"; to the end of the line
-                print looks_like_number($var) ? '' : '$',"$var,\"\\n\"\;\n";
-            } elsif ($var =~ /[\=\+\-\*\/\"\']/){
-                print "$var ";
-            } elsif ($var =~ /print/) {
-                print "$var ";  
-            } else{
-                print looks_like_number($var) ? '' : '$', "$var ";
-            } #similar approach to as above, split the string when see print 
-        }
-
+        my $var = $values[$i];
+        $var =~ s/\;//;
+        if ($#values eq 0){ #if just print, print a new line
+            print "print \"\\n\"\n"; 
+        } elsif($i eq $#values){ #if last variable in line add ,"\n"; to the end of the line
+            print looks_like_number($var) ? '' : '$',"$var,\"\\n\"\;\n";
+        } elsif ($var =~ /[\=\+\-\*\/\"\']/){
+            print "$var ";
+        } elsif ($var =~ /print/) {
+            print "$var ";  
+        } else{
+            print looks_like_number($var) ? '' : '$', "$var ";
+        } #similar approach to as above, split the string when see print 
+    }
 }
 
 sub control_routine {
@@ -123,5 +129,4 @@ sub control_routine {
         }
         $i++;
     }
-
 }
