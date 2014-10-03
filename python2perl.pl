@@ -7,8 +7,9 @@ use Scalar::Util qw(looks_like_number); #use perl module which checks if var is 
 
 my %int_variables = ();
 my %str_variables = ();
-my $control_flows = "(if|else|while|elif|for)"; 
+my $control_flows = "(if|else|while|elif)"; 
 my $indent = 0;
+my $prev_line = '';
 #my $math_ops = "[\=\+\-\*\/]";
 
 while (my $line = <>) {
@@ -20,33 +21,44 @@ while (my $line = <>) {
     elsif ($line =~ /$control_flows/){
         my @values = split(' ', $line);
         my $print_flag = 0;
-        for my $i (0 .. $#values){
+        my $i = 0;
+        while ($i <= $#values){
             my $var = $values[$i];
-            if (($i eq $#values) && ($var !~ /\=/)){
+            if (($i eq $#values) && ($var !~ /\:/)){#one line statements, close the bracket
                 print looks_like_number($var) ? '' : '$', "$var;\n";
                 print "\}\n";
                 $indent--;
             } elsif ($var =~ /$control_flows/){
                 $indent++;
-                print "$var \(";
-            } elsif ($var =~ s/\://){
-                print looks_like_number($var) ? '' : '$', "$var\)\{\n";
-                print ' ' x ($indent*4);
-            } elsif ($var =~ /[\=\+\-\*\/\>\<]/) { #if the variable is [=+-*/]
-                print "$var ";
-            } elsif ($var =~ /print/) {
-                print "$var ";  
-                $print_flag = 1;
-            } elsif($var =~ s/\;//){
-                if($print_flag){
-                    print looks_like_number($var) ? '' : '$', "$var \,\"\\n\"\;\n";  
-                } else {
-                    print looks_like_number($var) ? '' : '$', "$var\;\n";
+                my @control_array;
+                while($i <= $#values){
+                    push(@control_array, $values[$i]);
+                    if ($values[$i] =~ /\:/){
+                        last;
+                    } else {
+                        $i++;
+                    }
                 }
+                control_routine(@control_array);
                 print ' ' x ($indent*4);
+            } elsif ($var =~ /print/) {
+                my @print_array;
+                while($i <= $#values){
+                    push(@print_array, $values[$i]);
+                    if ($values[$i] =~ /\;/){
+                        last;
+                    } else {
+                        $i++;
+                    }
+                } 
+                print_routine(@print_array); 
+                print ' ' x ($indent*4);
+            } elsif ($var =~ /[\=\+\-\*\/\>\<\"\']/) { #if the variable is [=+-*/]
+                print "$var ";
             } else{
                 print looks_like_number($var) ? '' : '$', "$var "; #checks if the variable
             }  
+            $i++;
         }
     } 
     elsif ($line =~ /^\s*[a-zA-Z0-9\_]*\s*\=\s*\b[\s0-9\+\-\*\/]*\b/){
@@ -63,15 +75,26 @@ while (my $line = <>) {
         }
     } elsif ($line =~ /^\s*print/) {
         my @values = split(' ', $line);
-        for my $i (0 .. $#values){
+        print_routine(@values);    
+    }
+    
+    else {
+		# Lines we can't translate are turned into comments
+		print "#$line\n";
+	}
+    $prev_line = $line;
+}
+
+sub print_routine {
+    my @values = @_;
+    for my $i (0 .. $#values){
             my $var = $values[$i];
-            if($i eq $#values){ #if last variable in line add ,"\n"; to the end of the line
-                if ($#values eq 0){
-                   print "print \"\\n\"\n"; 
-                } else {
-                    print looks_like_number($var) ? '' : '$',"$var,\"\\n\"\;\n"; 
-                }
-            } elsif ($var =~ /[\=\+\-\*\/]/){
+            $var =~ s/\;//;
+            if ($#values eq 0){ #if just print, print a new line
+                print "print \"\\n\"\n"; 
+            } elsif($i eq $#values){ #if last variable in line add ,"\n"; to the end of the line
+                print looks_like_number($var) ? '' : '$',"$var,\"\\n\"\;\n";
+            } elsif ($var =~ /[\=\+\-\*\/\"\']/){
                 print "$var ";
             } elsif ($var =~ /print/) {
                 print "$var ";  
@@ -79,12 +102,26 @@ while (my $line = <>) {
                 print looks_like_number($var) ? '' : '$', "$var ";
             } #similar approach to as above, split the string when see print 
         }
-    }
-    
-    else {
-		# Lines we can't translate are turned into comments
-		print "#$line\n";
-	}
+
 }
 
+sub control_routine {
+    my @values = @_;
+    my $i = 0;
+    while ($i <= $#values){
+        my $var = $values[$i];
+        if ($var =~ /$control_flows/){
+            print "$var \(";
+        }
+        elsif ($var =~ /[\=\+\-\*\/\>\<]/) { #if the variable is [=+-*/]
+            print "$var ";
+        }
+        elsif ($var =~ s/\://){
+            print looks_like_number($var) ? '' : '$', "$var\)\{\n";
+        } else{
+            print looks_like_number($var) ? '' : '$', "$var ";
+        }
+        $i++;
+    }
 
+}
