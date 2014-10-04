@@ -13,22 +13,24 @@ my $prev_line = '';
 my $math_ops = "[\=\+\-\/\"\'\<\>\%\*]";
 
 while (my $line = <>) {
-    
-    if(scalar(@indent) > 0){
-        my $indent_len = calc_indent(); 
 
+    #this part calculates the closing brackets
+    if(scalar(@indent) > 0){
+        my $indent_len = calc_indent(); #get the length of the longest indent 
+
+        #get the length of curr and prev lines indent
         $line =~ /^(\s*)[a-z]/;
         my $current_indent = length($1);
         $prev_line =~ /^(\s*)[a-z]/;
         my $prev_indent = length($1); 
 
-        if($prev_indent > $current_indent){
-            while(($indent_len >= $current_indent) && scalar(@indent)>0){
-                my $popped = pop @indent;
-                $indent_len -= $popped;
-                create_indent();
-                print "\}\n";
-            }
+        if($prev_indent > $current_indent){ #at least one control statement has concluded
+            while(($indent_len >= $current_indent) && (scalar(@indent)>0)){
+                my $popped = pop @indent; #in python indents dont have to be the same length
+                $indent_len -= $popped;   #to legally work, but the statement has to be on
+                create_indent();          #the same level as a previous indent to work
+                print "\}\n"; #loop and add closing brackets until the indentation has
+            }                 #reached the same level
         }
     }
 
@@ -131,21 +133,23 @@ while (my $line = <>) {
 	}
     $prev_line = $line;
 }
-if (scalar(@indent) > 0){
-    print "\}";
+if (scalar(@indent) > 0){ #for the one line while statements i.e. set 2
+    print "\}";           #completes the bracket
 }
 
-sub create_indent{
-    print ' ' x (scalar(@indent)*4);
+#================================== FUNCTIONS START HERE =====================================
+
+sub create_indent{                   #i got tired of typing the statement
+    print ' ' x (scalar(@indent)*4); #so i made it a function
 }
-sub process_indent{
-    my $line = shift @_;
+sub process_indent{ #when sees a c/f statement (if while for etc...)
+    my $line = shift @_;    #pushes to the indent array the length of the indent
     $line =~ /^(\s*)[a-z]/;
     my $current_indent = length($1);
     push(@indent, $current_indent);
 }
-sub calc_indent{
-    my $result = 0;
+sub calc_indent{ #takes indent array 
+    my $result = 0; #calculates how large the previous indent is. 
     foreach my $i (@indent){
         $result += $i;
     }
