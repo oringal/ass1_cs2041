@@ -42,7 +42,7 @@ while (my $line = <>) {
     elsif ($line =~ /for/){
         create_indent();
         process_indent($line);
-
+#        print "asdlkfjlskdjflksdfj";
         my @values = split(' ',$line);
         for_routine(@values);  
     }
@@ -119,6 +119,9 @@ while (my $line = <>) {
         create_indent(); 
         process_indent($line);
         else_routine();
+    } elsif ($line =~ /break/){
+        create_indent();
+        print "last\;\n"
     }
         
          
@@ -173,7 +176,7 @@ sub print_routine {
         my $var = $values[$i];
         $var =~ s/\;//;
         if ($#values eq 0){ #if just print, print a new line
-            print "print \"\\n\"\n"; 
+            print "print \"\\n\"\;\n"; 
         } elsif($i eq $#values){ #if last variable in line add ,"\n"; to the end of the line
             if ($var =~ /$math_ops/) {
                 print "$var ";
@@ -197,7 +200,11 @@ sub control_routine {
     while ($i <= $#values){
         my $var = $values[$i];
         if ($var =~ /$control_flows/){
-            print "$var \(";
+            if ($var =~ /elif/){
+                print "elsif \(";                
+            } else {
+                print "$var \(";
+            }
         }
         elsif ($var =~ /$math_ops/) { #if the variable is [=+-*/]
             print "$var ";
@@ -218,11 +225,13 @@ sub for_routine {
         my $var = $values[$i];
         if($var =~ /for/){
             print "for ";
+        } elsif ($var =~ s/range\((.*)\,//) {
+            print looks_like_number($1) ? '' : '$', "\($1 .. ";
+        } elsif ($var =~ /$math_ops/){
+            print "$var ";
         } elsif ($var =~ s/\)\://){
             $var -= 1;
             print looks_like_number($var) ? '' : '$', "$var\)\{\n";
-        } elsif ($var =~ s/range\((.*)\,//) {
-            print looks_like_number($1) ? '' : '$', "\($1 .. ";
         } elsif ($var =~ /in/){
             print '';
         }
