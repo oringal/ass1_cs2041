@@ -8,20 +8,14 @@ use Scalar::Util qw(looks_like_number); #use perl module which checks if var is 
 my %int_variables = ();
 my %str_variables = ();
 my $control_flows = "(if|while|elif)"; 
-my $indent = 0;
+my @indent;
 my $prev_line = '';
 my $math_ops = "[\=\+\-\/\"\'\<\>\%\*]";
 
 while (my $line = <>) {
-    if ($indent > 0){
-        $line =~ /^(\s*)[a-z]/;
-        my $current_indent = length($1);
-        $prev_line =~ /^(\s*)[a-z]/;
-        my $prev_indent = length($1); 
-        if($prev_indent > $current_indent){
-            $indent--;
-        }
-    }
+
+	close_brackets($line, $prev_line);
+
 
 	if ($line =~ /^#!/ && $. == 1) {
     	print "#!/usr/bin/perl -w\n"; # translate #! line 
@@ -31,8 +25,9 @@ while (my $line = <>) {
         print "\n";
     }
     elsif ($line =~ /for/){
+        create_indent();
+        process_indent($line);
         my @values = split(' ',$line);
-        $indent++;
         for_routine(@values);  
     }
     elsif ($line =~ /$control_flows/){
@@ -44,10 +39,11 @@ while (my $line = <>) {
             if (($i == $#values) && ($var !~ /\:/)){#one line statements, close the bracket
                 print looks_like_number($var) ? '' : '$', "$var;\n";
                 print "\}\n";
-                $indent--;
+                #$indent--;
             } elsif ($var =~ /$control_flows/){
                 create_indent();
-                $indent++;
+                process_indent($line);
+                
                 my @control_array;
                 while($i <= $#values){
                     push(@control_array, $values[$i]);
@@ -71,7 +67,7 @@ while (my $line = <>) {
                 print_routine(@print_array); 
                 if ($i == (1+$#values)) {
                     print "\}\n";   
-                    $indent--;
+                    #$indent--;
                 } else {
                     create_indent();
                 }
@@ -105,8 +101,11 @@ while (my $line = <>) {
     }
     elsif ($line =~ /else\:/){
         create_indent(); 
-        $indent++;
+        process_indent($line);
         else_routine();
+    } elsif ($line =~ /break/){
+        create_indent();
+        print "last\;\n"
     }
         
          
@@ -116,13 +115,27 @@ while (my $line = <>) {
 	}
     $prev_line = $line;
 }
-if ($indent > 0){
-    print "\}";
-    $indent--;
+if (scalar(@indent) > 0){ #for the one line while statements i.e. set 2
+    print "\}";           #completes the bracket
 }
 
-sub create_indent{
-    print ' ' x ($indent*4);
+#================================== FUNCTIONS START HERE =====================================
+
+sub create_indent{                   #i got tired of typing the statement
+    print ' ' x (scalar(@indent)*4); #so i made it a function
+}
+sub process_indent{ #when sees a c/f statement (if while for etc...)
+    my $line = shift @_;    #pushes to the indent array the length of the indent
+    $line =~ /^(\s*)[a-z]/;
+    my $current_indent = length($1);
+    push(@indent, $current_indent);
+}
+sub calc_indent{ #takes indent array 
+    my $result = 0; #calculates how large the previous indent is. 
+    foreach my $i (@indent){
+        $result += $i;
+    }
+    return $result;
 }
 sub assign_routine {
     my @values = @_;
@@ -143,13 +156,36 @@ sub assign_routine {
         }                                                      #is a str or int
     }
 }
+sub close_brackets{
+	my $line = shift @_;
+	my $prev_line = shift @_;
+
+    #this part calculates the closing brackets
+    if(scalar(@indent) > 0){
+        my $indent_len = calc_indent(); #get the length of the longest indent 
+
+        #get the length of curr and prev lines indent
+        $line =~ /^(\s*)[a-z]/;
+        my $current_indent = length($1);
+        $prev_line =~ /^(\s*)[a-z]/;
+        my $prev_indent = length($1); 
+
+        if($prev_indent > $current_indent){ #at least one control statement has concluded
+            while(($indent_len >= $current_indent) && (scalar(@indent)>0)){
+                my $popped = pop @indent; #in python indents dont have to be the same length
+                $indent_len -= $popped;   #to legally work, but the statement has to be on
+                create_indent();          #the same level as a previous indent to work
+                print "\}\n"; #loop and add closing brackets until the indentation has
+        }                 	  #reached the same level
+    }
+}
 sub print_routine {
     my @values = @_;
     for my $i (0 .. $#values){
         my $var = $values[$i];
         $var =~ s/\;//;
         if ($#values eq 0){ #if just print, print a new line
-            print "print \"\\n\"\n"; 
+            print "print \"\\n\"\;\n"; 
         } elsif($i eq $#values){ #if last variable in line add ,"\n"; to the end of the line
             if ($var =~ /$math_ops/) {
                 print "$var ";
@@ -173,9 +209,13 @@ sub control_routine {
     while ($i <= $#values){
         my $var = $values[$i];
         if ($var =~ /$control_flows/){
-            print "$var \(";
+            if ($var =~ /elif/){
+                print "elsif \(";                
+            } else {
+                print "$var \(";
+            }
         }
-        elsif ($var =~ /[\=\+\-\*\/\>\<]/) { #if the variable is [=+-*/]
+        elsif ($var =~ /$math_ops/) { #if the variable is [=+-*/]
             print "$var ";
         }
         elsif ($var =~ s/\://){
@@ -194,11 +234,13 @@ sub for_routine {
         my $var = $values[$i];
         if($var =~ /for/){
             print "for ";
+        } elsif ($var =~ s/range\((.*)\,//) {
+            print looks_like_number($1) ? '' : '$', "\($1 .. ";
+        } elsif ($var =~ /$math_ops/){
+            print "$var ";
         } elsif ($var =~ s/\)\://){
             $var -= 1;
             print looks_like_number($var) ? '' : '$', "$var\)\{\n";
-        } elsif ($var =~ s/range\((.*)\,//) {
-            print looks_like_number($1) ? '' : '$', "\($1 .. ";
         } elsif ($var =~ /in/){
             print '';
         }

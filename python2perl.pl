@@ -13,26 +13,11 @@ my $prev_line = '';
 my $math_ops = "[\=\+\-\/\"\'\<\>\%\*]";
 
 while (my $line = <>) {
-
-    #this part calculates the closing brackets
-    if(scalar(@indent) > 0){
-        my $indent_len = calc_indent(); #get the length of the longest indent 
-
-        #get the length of curr and prev lines indent
-        $line =~ /^(\s*)[a-z]/;
-        my $current_indent = length($1);
-        $prev_line =~ /^(\s*)[a-z]/;
-        my $prev_indent = length($1); 
-
-        if($prev_indent > $current_indent){ #at least one control statement has concluded
-            while(($indent_len >= $current_indent) && (scalar(@indent)>0)){
-                my $popped = pop @indent; #in python indents dont have to be the same length
-                $indent_len -= $popped;   #to legally work, but the statement has to be on
-                create_indent();          #the same level as a previous indent to work
-                print "\}\n"; #loop and add closing brackets until the indentation has
-            }                 #reached the same level
-        }
-    }
+    
+    #determine if a control statement has concluded
+    #by processing if the indentation level has changed
+    #from the previous line
+	close_brackets($line, $prev_line); 
 
 	if ($line =~ /^#!/ && $. == 1) {
     	print "#!/usr/bin/perl -w\n"; # translate #! line 
@@ -44,7 +29,6 @@ while (my $line = <>) {
     elsif ($line =~ /for/){
         create_indent();
         process_indent($line);
-#        print "asdlkfjlskdjflksdfj";
         my @values = split(' ',$line);
         for_routine(@values);  
     }
@@ -173,6 +157,30 @@ sub assign_routine {
             print looks_like_number($var) ? '' : '$', "$var "; #checks if the variable
         }                                                      #is a str or int
     }
+}
+sub close_brackets{
+	my $line = shift @_;
+	my $prev_line = shift @_;
+
+    #this part calculates the closing brackets
+    if(scalar(@indent) > 0){
+        my $indent_len = calc_indent(); #get the length of the longest indent 
+
+        #get the length of curr and prev lines indent
+        $line =~ /^(\s*)[a-z]/;
+        my $current_indent = length($1);
+        $prev_line =~ /^(\s*)[a-z]/;
+        my $prev_indent = length($1); 
+
+        if($prev_indent > $current_indent){ #at least one control statement has concluded
+            while(($indent_len >= $current_indent) && (scalar(@indent)>0)){
+                my $popped = pop @indent; #in python indents dont have to be the same length
+                $indent_len -= $popped;   #to legally work, but the statement has to be on
+                create_indent();          #the same level as a previous indent to work
+                print "\}\n"; #loop and add closing brackets until the indentation has
+            }                 #reached the same level
+        }
+	}
 }
 sub print_routine {
     my @values = @_;
