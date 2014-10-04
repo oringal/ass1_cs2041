@@ -8,18 +8,27 @@ use Scalar::Util qw(looks_like_number); #use perl module which checks if var is 
 my %int_variables = ();
 my %str_variables = ();
 my $control_flows = "(if|while|elif)"; 
-my $indent = 0;
+my @indent;
 my $prev_line = '';
-#my $math_ops = "[\=\+\-\*\/]";
+my $math_ops = "[\=\+\-\/\"\'\<\>\%\*]";
 
 while (my $line = <>) {
-    if ($indent > 0){
+    
+    if(scalar(@indent) > 0){
+        my $indent_len = calc_indent(); 
+
         $line =~ /^(\s*)[a-z]/;
-        my $current_indent = $1;
+        my $current_indent = length($1);
         $prev_line =~ /^(\s*)[a-z]/;
-        my $prev_indent = $1; 
+        my $prev_indent = length($1); 
+
         if($prev_indent > $current_indent){
-            $indent--;
+            while(($indent_len >= $current_indent) && scalar(@indent)>0){
+                my $popped = pop @indent;
+                $indent_len -= $popped;
+                create_indent();
+                print "\}\n";
+            }
         }
     }
 
@@ -31,8 +40,10 @@ while (my $line = <>) {
         print "\n";
     }
     elsif ($line =~ /for/){
+        create_indent();
+        process_indent($line);
+
         my @values = split(' ',$line);
-        $indent++;
         for_routine(@values);  
     }
     elsif ($line =~ /$control_flows/){
@@ -44,10 +55,11 @@ while (my $line = <>) {
             if (($i == $#values) && ($var !~ /\:/)){#one line statements, close the bracket
                 print looks_like_number($var) ? '' : '$', "$var;\n";
                 print "\}\n";
-                $indent--;
+                #$indent--;
             } elsif ($var =~ /$control_flows/){
-                print ' ' x ($indent*4);
-                $indent++;
+                create_indent();
+                process_indent($line);
+                
                 my @control_array;
                 while($i <= $#values){
                     push(@control_array, $values[$i]);
@@ -71,71 +83,109 @@ while (my $line = <>) {
                 print_routine(@print_array); 
                 if ($i == (1+$#values)) {
                     print "\}\n";   
-                    $indent--;
+                    #$indent--;
                 } else {
-                    print ' ' x ($indent*4);
+                    create_indent();
                 }
             } elsif($var =~ s/;//){
                 print looks_like_number($var) ? '' : '$', "$var\; \n";
-            } elsif ($var =~ /[\=\+\-\*\/\>\<\"\']/) { #if the variable is [=+-*/]
+            } elsif ($var =~ /$math_ops/) { #if the variable is [=+-*/]
                 print "$var ";
             } else{
-                print looks_like_number($var) ? '' : '$', "$var "; #checks if the variable
+                print looks_like_number($var) ? '' : '$', "$var ";
             }  
             $i++;
         }
     } 
     elsif ($line =~ /^\s*[a-zA-Z0-9\_]*\s*\=\s*\b[\s0-9\+\-\*\/]*\b/){
         my @values = split(' ',$line); #if the line looks like
+        create_indent();
         assign_routine(@values);       #var = som * som2 etc...
     } elsif ($line =~ /^\s*print/) {
         my @values = split(' ', $line);
+        create_indent();
         print_routine(@values);    
     } 
+    elsif ($line =~ /sys\.stdout\.write\((.*)\)/){
+        create_indent();
+        print "print $1\;\n";
+    }
+    elsif ($line =~ /sys\.stdin\.readline\(\)/){
+        my @values = split(' ', $line);
+        create_indent();
+        assign_routine(@values);
+    }
+    elsif ($line =~ /else\:/){
+        create_indent(); 
+        process_indent($line);
+        else_routine();
+    }
+        
+         
     else {
 		# Lines we can't translate are turned into comments
 		print "#$line\n";
 	}
     $prev_line = $line;
 }
-if ($indent > 0){
+if (scalar(@indent) > 0){
     print "\}";
-    $indent--;
+}
+
+sub create_indent{
+    print ' ' x (scalar(@indent)*4);
+}
+sub process_indent{
+    my $line = shift @_;
+    $line =~ /^(\s*)[a-z]/;
+    my $current_indent = length($1);
+    push(@indent, $current_indent);
+}
+sub calc_indent{
+    my $result = 0;
+    foreach my $i (@indent){
+        $result += $i;
+    }
+    return $result;
 }
 sub assign_routine {
     my @values = @_;
-    print ' ' x ($indent*4);
     for my $i (0 .. $#values){      
         my $var = $values[$i];     #split the line to get numbers & strings
-        if(($i eq $#values) && ($var !~ /\=/)){ #last variable on the line
-            print looks_like_number($var) ? '' : '$', "$var;\n"; 
-        } elsif ($var =~ /[\=\+\-\*\/]/) { #if the variable is [=+-*/]
+        if($i eq $#values){ #last variable on the line
+            if ($var =~ /sys\.stdin\.readline\(\)/){
+                print "\<STDIN\>\;\n";
+            } else {
+                print looks_like_number($var) ? '' : '$', "$var;\n"; 
+            }
+        } elsif ($var =~ /$math_ops/) { #if the variable is [=+-*/]
             print "$var ";
-        } else{
+        }
+        
+        else{
             print looks_like_number($var) ? '' : '$', "$var "; #checks if the variable
         }                                                      #is a str or int
     }
 }
 sub print_routine {
     my @values = @_;
-    print ' ' x ($indent*4);
     for my $i (0 .. $#values){
         my $var = $values[$i];
         $var =~ s/\;//;
         if ($#values eq 0){ #if just print, print a new line
             print "print \"\\n\"\n"; 
         } elsif($i eq $#values){ #if last variable in line add ,"\n"; to the end of the line
-            if ($var =~ /[\=\+\-\*\/\"\']/) {
+            if ($var =~ /$math_ops/) {
                 print "$var ";
             } else {
-                print looks_like_number($var) ? '' : '$' 
+                print looks_like_number($var) ? '' : '$', "$var"; 
             }
             print ",\"\\n\"\;\n";
-        } elsif ($var =~ /[\=\+\-\*\/\"\']/){
+        } elsif ($var =~ /$math_ops/){
             print "$var ";
         } elsif ($var =~ /print/) {
             print "$var ";  
-        } else{
+        } else {
             print looks_like_number($var) ? '' : '$', "$var ";
         } #similar approach to as above, split the string when see print 
     }
@@ -149,7 +199,7 @@ sub control_routine {
         if ($var =~ /$control_flows/){
             print "$var \(";
         }
-        elsif ($var =~ /[\=\+\-\*\/\>\<]/) { #if the variable is [=+-*/]
+        elsif ($var =~ /$math_ops/) { #if the variable is [=+-*/]
             print "$var ";
         }
         elsif ($var =~ s/\://){
@@ -185,3 +235,6 @@ sub for_routine {
         $i++;
     }
 }
+sub else_routine{
+    print "else \{\n";
+}   
