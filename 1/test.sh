@@ -12,8 +12,9 @@ do
     diff correct.txt test.txt
     if [ $? -ne 0 ]
 	then
-		echo "test fail"
+		echo -e "test fail"
 	else 
-		echo "test success"
+		echo -e "test success"
 	fi
+    echo -e "\n"
 done
