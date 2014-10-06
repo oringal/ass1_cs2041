@@ -34,7 +34,8 @@ while (my $line = <>) {
         for_routine(@values);  
     }
     elsif ($line =~ /$control_flows/){
-        my @values = split(' ', $line);
+        my @values = split(/[:;]/, $line);
+        print scalar(@values), "---\n";
         my $print_flag = 0;
         my $i = 0;
         while ($i <= $#values){
@@ -42,20 +43,11 @@ while (my $line = <>) {
             if (($i == $#values) && ($var !~ /\:/)){#one line statements, close the bracket
                 print looks_like_number($var) ? '' : '$', "$var;\n";
                 print "\}\n";
-                #$indent--;
-            } elsif ($var =~ /$control_flows/){
+                my $popped = pop @indent;
+            } elsif ($var =~ /$control_flows/){ 
+                my @control_array = split(' ',$var); 
                 create_indent();
                 process_indent($line);
-                
-                my @control_array;
-                while($i <= $#values){
-                    push(@control_array, $values[$i]);
-                    if ($values[$i] =~ /\:/){
-                        last;
-                    } else {
-                        $i++;
-                    }
-                }
                 control_routine(@control_array);
             } elsif ($var =~ /print/) { #special case for 2nd subset
                 my @print_array;        #one line programs
@@ -67,10 +59,12 @@ while (my $line = <>) {
                         $i++;
                     }
                 } 
+                create_indent(); 
                 print_routine(@print_array); 
                 if ($i == (1+$#values)) {
                     print "\}\n";   
                     #$indent--;
+                    my $popped = pop @indent;
                 } else {
                     create_indent();
                 }
@@ -84,9 +78,14 @@ while (my $line = <>) {
             $i++;
         }
     } 
+    #elsif ($line =~ //){
+    #    
+    #
+    #}
+
     elsif ($line =~ /^\s*print/) {
         create_indent();
-        if ($line =~ /\s*"\s*%\s*/){ #use perl printf
+        if ($line =~ /\s*\"\s*\%\s*/){ #use perl printf
             printf_routine($line);
         } else { 
             my @values = split(' ', $line);
@@ -196,19 +195,65 @@ sub close_brackets{
 }
 sub print_routine {
     my @values = @_;
+    my $format = 0;
     for my $i (0 .. $#values){
         my $var = $values[$i];
         $var =~ s/\;//;
         if ($#values eq 0){ #if just print, print a new line
             print "print \"\\n\"\;\n"; 
-        } elsif($i eq $#values){ #if last variable in line add ,"\n"; to the end of the line
-            if ($var =~ /$math_ops/) {
-                print "$var ";
+        } elsif ($var =~ /"/){
+            if(($var =~ /"/) && ($var =~ /\"/)){
+                if ($format == 0){
+                    $format = 1;
+                } else {
+                    $format = 0;
+                }
+            } elsif ($var =~ /\"/){
+
+            } elsif($format == 0){
+                $format = 1;
             } else {
-                print looks_like_number($var) ? '' : '$', "$var"; 
+                $format = 0;
             }
-            print ",\"\\n\"\;\n";
+            print "$var ";
         } elsif ($var =~ /$math_ops/){
+            print "$var ";
+        } elsif ($var =~ /print/) {
+            print "$var ";  
+        } elsif ($format == 1){
+            print "$var ";
+        } else {
+            print looks_like_number($var) ? '' : '$', "$var ";
+        } #similar approach to as above, split the string when see print 
+    }
+    print ",\"\\n\"\;\n";
+}
+sub print_noNewLine{
+    my @values = @_;
+    my $format = 0;
+    for my $i (0 .. $#values){
+        my $var = $values[$i];
+        $var =~ s/\;//;
+        if ($#values eq 0){ #if just print, print a space
+            print "print \" \"\;\n"; 
+        } elsif ($var =~ /"/){
+            if(($var =~ /"/) && ($var =~ /\"/)){
+                if ($format == 0){
+                    $format = 1;
+                } else {
+                    $format = 0;
+                }
+            } elsif ($var =~ /\"/){
+
+            } elsif($format == 0){
+                $format = 1;
+            } else {
+                $format = 0;
+            }
+            print "$var ";
+        } elsif ($var =~ /$math_ops/){
+            print "$var ";
+        } elsif ($format == 1){
             print "$var ";
         } elsif ($var =~ /print/) {
             print "$var ";  
@@ -258,9 +303,7 @@ sub printf_routine {
         }
         $i++;
     }
-    
     print "\)\; print \"\\n\"\;";
-
 }
 
 sub control_routine {
@@ -278,9 +321,7 @@ sub control_routine {
         elsif ($var =~ /$math_ops/) { #if the variable is [=+-*/]
             print "$var ";
         }
-        elsif ($var =~ s/\://){
-            print looks_like_number($var) ? '' : '$', "$var\)\{\n";
-        } else{
+         else{
             print looks_like_number($var) ? '' : '$', "$var ";
         }
         $i++;
@@ -304,9 +345,6 @@ sub for_routine {
         } elsif ($var =~ /in/){
             print '';
         }
-
-
-
         else {
             print looks_like_number($var) ? '' : '$', "$var ";
         }
